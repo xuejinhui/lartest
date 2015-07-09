@@ -317,7 +317,9 @@ class Ftp extends AbstractFtpAdapter
             return false;
         }
 
-        return  $this->normalizeObject($listing[0], '');
+        $metadata = $this->normalizeObject($listing[0], '');
+
+        return $metadata;
     }
 
     /**

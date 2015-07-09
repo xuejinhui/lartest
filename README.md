@@ -1,2 +1,0 @@
-# lartest
-laravel test

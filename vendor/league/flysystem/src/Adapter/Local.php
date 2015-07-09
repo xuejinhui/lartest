@@ -16,14 +16,8 @@ use SplFileInfo;
 class Local extends AbstractAdapter
 {
     protected static $permissions = [
-        'file' => [
-            'public' => 0744,
-            'private' => 0700,
-        ],
-        'dir' => [
-            'public' => 0755,
-            'private' => 0700,
-        ]
+        'public' => 0744,
+        'private' => 0700,
     ];
 
     /**
@@ -32,17 +26,11 @@ class Local extends AbstractAdapter
     protected $pathSeparator = DIRECTORY_SEPARATOR;
 
     /**
-     * @var int
-     */
-    protected $writeFlags;
-
-    /**
      * Constructor.
      *
      * @param string $root
-     * @param int $writeFlags
      */
-    public function __construct($root, $writeFlags = LOCK_EX)
+    public function __construct($root)
     {
         $realRoot = $this->ensureDirectory($root);
 
@@ -51,7 +39,6 @@ class Local extends AbstractAdapter
         }
 
         $this->setPathPrefix($realRoot);
-        $this->writeFlags = $writeFlags;
     }
 
     /**
@@ -65,7 +52,7 @@ class Local extends AbstractAdapter
     {
         if (! is_dir($root)) {
             $umask = umask(0);
-            mkdir($root, static::$permissions['dir']['public'], true);
+            mkdir($root, 0777, true);
             umask($umask);
         }
 
@@ -90,7 +77,7 @@ class Local extends AbstractAdapter
         $location = $this->applyPathPrefix($path);
         $this->ensureDirectory(dirname($location));
 
-        if (($size = file_put_contents($location, $contents, $this->writeFlags)) === false) {
+        if (($size = file_put_contents($location, $contents, LOCK_EX)) === false) {
             return false;
         }
 
@@ -112,9 +99,8 @@ class Local extends AbstractAdapter
     {
         $location = $this->applyPathPrefix($path);
         $this->ensureDirectory(dirname($location));
-        $stream = fopen($location, 'w+');
 
-        if (! $stream) {
+        if (! $stream = fopen($location, 'w+')) {
             return false;
         }
 
@@ -157,9 +143,8 @@ class Local extends AbstractAdapter
     {
         $location = $this->applyPathPrefix($path);
         $mimetype = Util::guessMimeType($path, $contents);
-        $size = file_put_contents($location, $contents, $this->writeFlags);
 
-        if ($size === false) {
+        if (($size = file_put_contents($location, $contents, LOCK_EX)) === false) {
             return false;
         }
 
@@ -232,11 +217,9 @@ class Local extends AbstractAdapter
 
         foreach ($iterator as $file) {
             $path = $this->getFilePath($file);
-
             if (preg_match('#(^|/|\\\\)\.{1,2}$#', $path)) {
                 continue;
             }
-
             $result[] = $this->normalizeFileInfo($file);
         }
 
@@ -300,8 +283,7 @@ class Local extends AbstractAdapter
     public function setVisibility($path, $visibility)
     {
         $location = $this->applyPathPrefix($path);
-        $type = is_dir($location) ? 'dir' : 'file';
-        chmod($location, static::$permissions[$type][$visibility]);
+        chmod($location, static::$permissions[$visibility]);
 
         return compact('visibility');
     }
@@ -313,9 +295,8 @@ class Local extends AbstractAdapter
     {
         $location = $this->applyPathPrefix($dirname);
         $umask = umask(0);
-        $visibility = $config->get('visibility', 'public');
 
-        if (! is_dir($location) && ! mkdir($location, static::$permissions['dir'][$visibility], true)) {
+        if (! is_dir($location) && ! mkdir($location, 0777, true)) {
             $return = false;
         } else {
             $return = ['path' => $dirname, 'type' => 'dir'];
